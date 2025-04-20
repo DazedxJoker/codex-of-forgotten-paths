@@ -1,37 +1,6 @@
-const fs = require('fs');
-const path = require('path');
+// netlify/functions/submit.js
+const { getDatabase } = require('./util/db');
 const crypto = require('crypto');
-
-// Path to our data file
-const DATA_FILE = path.join(__dirname, '..', '..', 'data', 'quests.json');
-
-// Helper to ensure data file exists
-function ensureDataFile() {
-  const dataDir = path.join(__dirname, '..', '..', 'data');
-  
-  // Create data directory if it doesn't exist
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  
-  // Create empty quests file if it doesn't exist
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify([]));
-  }
-}
-
-// Helper to read quests
-function getQuests() {
-  ensureDataFile();
-  const data = fs.readFileSync(DATA_FILE, 'utf-8');
-  return JSON.parse(data);
-}
-
-// Helper to write quests
-function saveQuests(quests) {
-  ensureDataFile();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(quests, null, 2));
-}
 
 exports.handler = async (event) => {
   // Allow CORS
@@ -72,11 +41,22 @@ exports.handler = async (event) => {
     }
     
     // Get existing quests
-    const quests = getQuests();
+    let quests = [];
+    const db = await getDatabase();
+    
+    try {
+      const storedQuests = await db.get('quests');
+      if (storedQuests) {
+        quests = JSON.parse(storedQuests);
+      }
+    } catch (error) {
+      console.error('Error reading from database:', error);
+      // Continue with empty quests array
+    }
     
     // Create new quest
     const newQuest = {
-      id: crypto.randomUUID(),
+      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
       character: data.character || 'Anonymous',
       quest: data.quest,
       timestamp: new Date().toISOString()
@@ -85,8 +65,8 @@ exports.handler = async (event) => {
     // Add to quests array
     quests.push(newQuest);
     
-    // Save to file
-    saveQuests(quests);
+    // Save to database
+    await db.set('quests', JSON.stringify(quests));
     
     return {
       statusCode: 201,

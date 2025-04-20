@@ -1,0 +1,46 @@
+name: Deploy Codex
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy.yml'
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: frontend
+          clean: true
+
+  create-package:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.event.head_commit.modified, 'mudlet-package/Codex.xml')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Create Mudlet package
+        run: |
+          cd mudlet-package
+          zip -r CodexOfForgottenPaths.mpackage Codex.xml
+          echo "Package created: CodexOfForgottenPaths.mpackage"
+
+      - name: Upload package as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: mudlet-package
+          path: mudlet-package/CodexOfForgottenPaths.mpackage

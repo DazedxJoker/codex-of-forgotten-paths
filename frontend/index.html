@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codex of Forgotten Paths</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Codex of Forgotten Paths</h1>
+            <p class="subtitle">A shared repository of Achaea artifact quests</p>
+        </header>
+
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search quests...">
+            <button id="search-button"><i class="fas fa-search"></i></button>
+            <button id="reset-button"><i class="fas fa-undo"></i></button>
+        </div>
+
+        <div class="filters">
+            <select id="character-filter">
+                <option value="">All Characters</option>
+                <!-- Character options will be added dynamically -->
+            </select>
+            <div class="view-options">
+                <button id="grid-view" class="view-button active"><i class="fas fa-th"></i></button>
+                <button id="list-view" class="view-button"><i class="fas fa-list"></i></button>
+            </div>
+        </div>
+
+        <div id="quests-container" class="grid-view">
+            <!-- Quests will be loaded here -->
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading quests...</p>
+            </div>
+        </div>
+
+        <div id="quest-detail" class="hidden">
+            <div class="detail-header">
+                <button id="back-button"><i class="fas fa-arrow-left"></i> Back to quests</button>
+            </div>
+            <div class="detail-content">
+                <!-- Quest detail will be shown here -->
+            </div>
+        </div>
+
+        <footer>
+            <p>
+                <a href="https://github.com/yourusername/codex-of-forgotten-paths" target="_blank">
+                    <i class="fab fa-github"></i> GitHub
+                </a>
+                <span class="separator">|</span>
+                <a href="https://github.com/yourusername/codex-of-forgotten-paths/tree/main/mudlet-package" target="_blank">
+                    <i class="fas fa-download"></i> Install Mudlet Package
+                </a>
+            </p>
+            <p class="copyright">© 2025 Codex of Forgotten Paths</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE MudletPackage>
+<MudletPackage version="1.001">
+	<ScriptPackage>
+		<ScriptGroup isActive="yes" isFolder="yes">
+			<n>Codex of Forgotten Paths</n>
+			<packageName></packageName>
+			<script>-- Configuration variables
+local API_URL = "https://YOUR-NETLIFY-SITE.netlify.app/.netlify/functions"
+-- Replace with your actual Netlify site URL when deployed
+
+-- Main function to submit a quest to the Codex
+function submitCodexQuest(questText)
+  local character = gmcp.Char.Status.name or "Anonymous"
+  local payload = yajl.to_string({ quest = questText, character = character })
+  
+  -- Create UI to confirm submission
+  showCodexConfirmation(questText, function()
+    -- Send the quest data to the API
+    postHTTP(
+      API_URL .. "/submit",
+      payload,
+      function(_, response)
+        if response then
+          local success = response:find("success")
+          if success then
+            cecho("\n<green>[Codex]</green> Quest submitted successfully!")
+            -- Update the UI to show success
+            updateCodexStatus("Success! Quest added to the Codex.", "green")
+          else
+            cecho("\n<red>[Codex]</red> Failed to submit quest.")
+            updateCodexStatus("Failed to submit quest. Server error.", "red")
+          end
+        else
+          cecho("\n<red>[Codex]</red> No response received from server.")
+          updateCodexStatus("No response from server. Check connection.", "red")
+          
+          -- Try alternate endpoint if main fails
+          submitWithFallback(payload)
+        end
+      end,
+      { ["Content-Type"] = "application/json" }
+    )
+  end)
+end
+
+-- Fallback function for connection issues
+function submitWithFallback(payload)
+  -- Try HTTP instead of HTTPS or an alternate endpoint
+  local fallbackUrl = API_URL:gsub("https:", "http:") .. "/submit"
+  
+  cecho("\n<yellow>[Codex]</yellow> Trying fallback connection...")
+  
+  postHTTP(
+    fallbackUrl,
+    payload,
+    function(_, response)
+      if response and response:find("success") then
+        cecho("\n<green>[Codex]</green> Quest submitted successfully via fallback!")
+        updateCodexStatus("Success via fallback connection!", "green")
+      else
+        cecho("\n<red>[Codex]</red> All submission attempts failed.")
+        updateCodexStatus("Submission failed. Please try again later.", "red")
+      end
+    end,
+    { 
+      ["Content-Type"] = "application/json",
+      ["Accept"] = "application/json"
+    }
+  )
+end
+
+-- Test connection to the API
+function pingCodexServer()
+  getHTTP(API_URL .. "/ping", {}, function(success, response)
+    if success and response then
+      cecho("\n<green>[Codex Ping]</green> Server is online: " .. response)
+    else
+      cecho("\n<red>[Codex Ping]</red> Server unreachable! Check your connection.")
+    end
+  end)
+end
+
+-- Create confirmation dialog
+function showCodexConfirmation(questText, confirmCallback)
+  -- Create container if it doesn't exist
+  if not codexConfirmWindow then
+    codexConfirmWindow = Geyser.Container:new({
+      name = "codexConfirmWindow",
+      x = "20%", y = "20%",
+      width = "60%", height = "60%"
+    })
+    
+    -- Create background
+    local background = Geyser.Label:new({
+      name = "codexBackground",
+      x = 0, y = 0,
+      width = "100%", height = "100%"
+    }, codexConfirmWindow)
+    
+    background:setStyleSheet([[
+      background-color: rgba(0, 0, 0, 0.9);
+      border: 2px solid #888;
+      border-radius: 10px;
+    ]])
+    
+-- Create title
+    codexTitle = Geyser.Label:new({
+      name = "codexTitle",
+      x = 0, y = "2%",
+      width = "100%", height = "10%"
+    }, codexConfirmWindow)
+    
+    codexTitle:setStyleSheet([[
+      background-color: transparent;
+      color: #ffcc00;
+      font-size: 14pt;
+      qproperty-alignment: AlignCenter;
+    ]])
+    
+    -- Create content area
+    codexContent = Geyser.Label:new({
+      name = "codexContent",
+      x = "5%", y = "14%",
+      width = "90%", height = "56%"
+    }, codexConfirmWindow)
+    
+    codexContent:setStyleSheet([[
+      background-color: rgba(10, 10, 10, 0.7);
+      color: white;
+      font-size: 10pt;
+      border-radius: 5px;
+      padding: 10px;
+      qproperty-wordWrap: true;
+    ]])
+    
+    -- Create status area
+    codexStatus = Geyser.Label:new({
+      name = "codexStatus",
+      x = "5%", y = "72%",
+      width = "90%", height = "8%"
+    }, codexConfirmWindow)
+    
+    codexStatus:setStyleSheet([[
+      background-color: transparent;
+      color: yellow;
+      font-size: 10pt;
+      qproperty-alignment: AlignCenter;
+    ]])
+    
+    -- Create confirm button
+    codexConfirm = Geyser.Label:new({
+      name = "codexConfirm",
+      x = "20%", y = "82%",
+      width = "25%", height = "12%"
+    }, codexConfirmWindow)
+    
+    codexConfirm:setStyleSheet([[
+      background-color: rgba(0, 100, 0, 0.7);
+      color: white;
+      font-size: 10pt;
+      border-radius: 5px;
+      qproperty-alignment: AlignCenter;
+    ]])
+    
+    -- Create cancel button
+    codexCancel = Geyser.Label:new({
+      name = "codexCancel",
+      x = "55%", y = "82%",
+      width = "25%", height = "12%"
+    }, codexConfirmWindow)
+    
+    codexCancel:setStyleSheet([[
+      background-color: rgba(100, 0, 0, 0.7);
+      color: white;
+      font-size: 10pt;
+      border-radius: 5px;
+      qproperty-alignment: AlignCenter;
+    ]])
+  end
+  
+  -- Update the window content
+  codexTitle:echo("Codex of Forgotten Paths")
+  codexContent:echo(questText)
+  codexStatus:echo("Submit this quest to the shared database?")
+  codexConfirm:echo("Submit")
+  codexCancel:echo("Cancel")
+  
+  -- Set callbacks
+  codexConfirm:setClickCallback(function()
+    if confirmCallback then
+      confirmCallback()
+    end
+  end)
+  
+  codexCancel:setClickCallback(function()
+    codexConfirmWindow:hide()
+  end)
+  
+  -- Show the window
+  codexConfirmWindow:show()
+end
+
+-- Update status message in the confirmation dialog
+function updateCodexStatus(message, color)
+  if codexStatus then
+    codexStatus:echo("")
+    codexStatus:setStyleSheet([[
+      background-color: transparent;
+      color: ]] .. (color or "yellow") .. [[;
+      font-size: 10pt;
+      qproperty-alignment: AlignCenter;
+    ]])
+    codexStatus:echo(message)
+    
+    -- Auto-close after success
+    if color == "green" then
+      tempTimer(3, function() if codexConfirmWindow then codexConfirmWindow:hide() end end)
+    end
+  end
+end
+
+-- Show the Codex Viewer window
+function openCodexViewer()
+  if not codexViewerWindow then
+    codexViewerWindow = Geyser.Label:new({
+      name = "codexViewerWindow", 
+      x = "70%", y = "5%", 
+      width = "28%", height = "90%"
+    })
+    
+    codexViewerWindow:setStyleSheet([[
+      background-color: black; 
+      border: 2px solid #888; 
+      border-radius: 10px; 
+      padding: 5px;
+    ]])
+    
+    codexViewerWindow:echo("<center><span style='color:gold;font-size:14pt;'>Codex of Forgotten Paths</span></center><br>")
+    codexViewerWindow:echo("<center><span style='color:silver;font-size:10pt;'>A shared repository of Achaea artifact quests</span></center><br><br>")
+    
+    -- Add link to web viewer - make sure to update with your actual frontend URL
+    codexViewerWindow:echo("<center><a href='https://YOUR-NETLIFY-SITE.netlify.app' style='color:cyan;'>Open Web Viewer</a></center><br>")
+    
+    -- Add close button
+    local closeButton = Geyser.Label:new({
+      name = "codexViewerClose",
+      x = "85%", y = 0,
+      width = "15%", height = "5%"
+    }, codexViewerWindow)
+    
+    closeButton:setStyleSheet([[
+      background-color: rgba(100, 0, 0, 0.5);
+      color: white;
+      border-radius: 3px;
+      qproperty-alignment: AlignCenter;
+    ]])
+    
+    closeButton:echo("X")
+    closeButton:setClickCallback(function()
+      codexViewerWindow:hide()
+      codexViewerWindow = nil
+    end)
+    
+    -- Add ping test button
+    local pingButton = Geyser.Label:new({
+      name = "codexPingButton",
+      x = "20%", y = "90%",
+      width = "60%", height = "8%"
+    }, codexViewerWindow)
+    
+    pingButton:setStyleSheet([[
+      background-color: rgba(0, 70, 100, 0.7);
+      color: white;
+      border-radius: 5px;
+      qproperty-alignment: AlignCenter;
+    ]])
+    
+    pingButton:echo("Test Connection")
+    pingButton:setClickCallback(function() pingCodexServer() end)
+  else
+    codexViewerWindow:hide()
+    codexViewerWindow = nil
+  end
+end
+
+-- Register the package commands
+function registerCodexCommands()
+  cecho("\n<yellow>[Codex]</yellow> Registering commands...")
+  
+  -- Main Codex command
+  registerAnonymousEventHandler("sysInstall", function()
+    registerNamedEventHandler("CodexHandlers", "sysWindowResizeEvent", "updateCodexWindowSize")
+  end)
+  
+  -- Add command to show viewer
+  registerNamedEventHandler("CodexHandlers", "sysLoadEvent", function()
+    cecho("\n<green>[Codex of Forgotten Paths]</green> Loaded and ready!")
+    cecho("\n<white>Type <yellow>codex</yellow> to open the viewer window.</white>")
+  end)
+end
+
+-- Update window size on resize
+function updateCodexWindowSize()
+  if codexConfirmWindow then
+    codexConfirmWindow:move("20%", "20%")
+    codexConfirmWindow:resize("60%", "60%")
+  end
+  
+  if codexViewerWindow then
+    codexViewerWindow:move("70%", "5%")
+    codexViewerWindow:resize("28%", "90%")
+  end
+end
+
+-- Initialize the package
+registerCodexCommands()
+</script>
+			<eventHandlerList />
+			<Script isActive="yes" isFolder="no">
+				<n>Codex Commands</n>
+				<packageName></packageName>
+				<script>-- Register the main codex command
+registerNamedEventHandler("CodexCommands", "sysLoadEvent", function()
+  -- Add command to open the viewer
+  cecho("\n<green>[Codex]</green> Registering commands...")
+  
+  -- Command: codex
+  send("", false)
+  if not exists("showCodex", "alias") then
+    permAlias("showCodex", [[^codex$]], [[openCodexViewer()]])
+  end
+  
+  -- Command: codexping
+  if not exists("codexPing", "alias") then
+    permAlias("codexPing", [[^codexping$]], [[pingCodexServer()]])
+  end
+end)</script>
+				<eventHandlerList />
+			</Script>
+		</ScriptGroup>
+	</ScriptPackage>
+	<TriggerPackage>
+		<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+			<n>Codex of Forgotten Paths</n>
+			<script></script>
+			<triggerType>0</triggerType>
+			<conditonLineDelta>0</conditonLineDelta>
+			<mStayOpen>0</mStayOpen>
+			<mCommand></mCommand>
+			<packageName></packageName>
+			<mFgColor>#ff0000</mFgColor>
+			<mBgColor>#ffff00</mBgColor>
+			<mSoundFile></mSoundFile>
+			<colorTriggerFgColor>#000000</colorTriggerFgColor>
+			<colorTriggerBgColor>#000000</colorTriggerBgColor>
+			<regexCodeList />
+			<regexCodePropertyList />
+			<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="yes" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+				<n>Adventurer's Journal</n>
+				<script>QuestText = ""</script>
+				<triggerType>0</triggerType>
+				<conditonLineDelta>1</conditonLineDelta>
+				<mStayOpen>100</mStayOpen>
+				<mCommand></mCommand>
+				<packageName></packageName>
+				<mFgColor>#ff0000</mFgColor>
+				<mBgColor>#ffff00</mBgColor>
+				<mSoundFile></mSoundFile>
+				<colorTriggerFgColor>#000000</colorTriggerFgColor>
+				<colorTriggerBgColor>#000000</colorTriggerBgColor>
+				<regexCodeList>
+					<string>You read what is written in an adventurer's journal:</string>
+				</regexCodeList>
+				<regexCodePropertyList>
+					<integer>3</integer>
+				</regexCodePropertyList>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<n>Quest Text Kill</n>
+					<script>setTriggerStayOpen("Adventurer's Journal", 0)
+QuestText = QuestText:gsub(" You read what is written in an adventurer's journal: ", "")
+submitCodexQuest(QuestText)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand></mCommand>
+					<packageName></packageName>
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile></mSoundFile>
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string></string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>7</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<n>Quest Capture</n>
+					<script>QuestText = QuestText .. " ".. matches[2]</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand></mCommand>
+					<packageName></packageName>
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile></mSoundFile>
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>(.+)</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+			</Trigger>
+		</TriggerGroup>
+	</TriggerPackage>
+</MudletPackage>

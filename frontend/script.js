@@ -1,6 +1,6 @@
 // Configuration
-const API_URL = "https://b81b3fac-32e9-404b-8a27-2678a06f3d64-00-3c73whxwpihsv.janeway.replit.dev";
-// Change this to your API URL
+const API_URL = "https://YOUR-NETLIFY-SITE.netlify.app/.netlify/functions";
+// Replace with your actual Netlify site URL when deployed
 
 // DOM Elements
 const questsContainer = document.getElementById('quests-container');

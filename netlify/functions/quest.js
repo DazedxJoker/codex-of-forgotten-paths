@@ -1,30 +1,5 @@
-const fs = require('fs');
-const path = require('path');
-
-// Path to our data file
-const DATA_FILE = path.join(__dirname, '..', '..', 'data', 'quests.json');
-
-// Helper to ensure data file exists
-function ensureDataFile() {
-  const dataDir = path.join(__dirname, '..', '..', 'data');
-  
-  // Create data directory if it doesn't exist
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  
-  // Create empty quests file if it doesn't exist
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify([]));
-  }
-}
-
-// Helper to read quests
-function getQuests() {
-  ensureDataFile();
-  const data = fs.readFileSync(DATA_FILE, 'utf-8');
-  return JSON.parse(data);
-}
+// netlify/functions/quests.js
+const { getDatabase } = require('./util/db');
 
 exports.handler = async (event) => {
   // Allow CORS
@@ -43,8 +18,20 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Get quests from file
-    const quests = getQuests();
+    // Initialize quests array
+    let quests = [];
+    
+    try {
+      // Try to get existing quests from KV store
+      const db = await getDatabase();
+      const storedQuests = await db.get('quests');
+      if (storedQuests) {
+        quests = JSON.parse(storedQuests);
+      }
+    } catch (error) {
+      console.error('Error reading from database:', error);
+      // Continue with empty quests array
+    }
     
     // Parse query parameters
     const params = event.queryStringParameters || {};

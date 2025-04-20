@@ -1,24 +1,21 @@
-// netlify/functions/submit.js
-const { getDatabase } = require('./util/db');
-const crypto = require('crypto');
+// Temporary storage for demo purposes
+// In a real app, you would use a database
+const QUESTS = require('./quests').QUESTS;
 
 exports.handler = async (event) => {
-  // Allow CORS
+  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json'
   };
 
-  // Handle OPTIONS request (CORS preflight)
+  // Handle OPTIONS (CORS preflight)
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers
-    };
+    return { statusCode: 200, headers, body: '' };
   }
 
-  // Only accept POST requests
+  // Only accept POST
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -40,45 +37,28 @@ exports.handler = async (event) => {
       };
     }
     
-    // Get existing quests
-    let quests = [];
-    const db = await getDatabase();
-    
-    try {
-      const storedQuests = await db.get('quests');
-      if (storedQuests) {
-        quests = JSON.parse(storedQuests);
-      }
-    } catch (error) {
-      console.error('Error reading from database:', error);
-      // Continue with empty quests array
-    }
-    
     // Create new quest
     const newQuest = {
-      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      id: Date.now().toString(),
       character: data.character || 'Anonymous',
       quest: data.quest,
       timestamp: new Date().toISOString()
     };
     
-    // Add to quests array
-    quests.push(newQuest);
-    
-    // Save to database
-    await db.set('quests', JSON.stringify(quests));
+    // In a real app, you would save this to a database
+    // For demo purposes, just log it
+    console.log('New quest submitted:', newQuest);
     
     return {
-      statusCode: 201,
+      statusCode: 200,
       headers,
       body: JSON.stringify({ 
         success: true,
-        id: newQuest.id
+        message: 'Quest received! Note: For this demo, quests are not permanently saved.'
       })
     };
   } catch (error) {
-    console.error('Error submitting quest:', error);
-    
+    console.error('Error:', error);
     return {
       statusCode: 500,
       headers,

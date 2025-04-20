@@ -1,6 +1,5 @@
 // Configuration
-const API_URL = "https://YOUR-NETLIFY-SITE.netlify.app/.netlify/functions";
-// Replace with your actual Netlify site URL when deployed
+const API_URL = "https://glowing-twilight-c89899.netlify.app/.netlify/functions";
 
 // DOM Elements
 const questsContainer = document.getElementById('quests-container');
